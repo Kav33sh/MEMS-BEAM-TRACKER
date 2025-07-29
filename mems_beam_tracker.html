@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MEMS Light Beam Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; text-align: center; }
+    canvas { border: 1px solid #ccc; margin-top: 20px; }
+    .controls { margin-top: 20px; }
+    .controls label { margin: 0 10px; }
+    .mode-buttons { margin-top: 10px; }
+    .mode-buttons button { margin: 5px; padding: 10px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <h1>MEMS-Based Light Beam Tracker</h1>
+  <canvas id="beamCanvas" width="600" height="400"></canvas>
+
+  <div class="controls">
+    <label>
+      Mirror Tilt X (θx):
+      <input type="range" id="tiltX" min="-45" max="45" value="0" />
+    </label>
+    <label>
+      Mirror Tilt Y (θy):
+      <input type="range" id="tiltY" min="-45" max="45" value="0" />
+    </label>
+  </div>
+
+  <div class="mode-buttons">
+    <button onclick="setMode('normal')">Normal Mode</button>
+    <button onclick="setMode('track')">Target Tracking Mode</button>
+    <button onclick="setMode('aerospace')">Aerospace Mode</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('beamCanvas');
+    const ctx = canvas.getContext('2d');
+    const tiltXInput = document.getElementById('tiltX');
+    const tiltYInput = document.getElementById('tiltY');
+
+    let mode = 'normal';
+    let target = { x: 500, y: 150 };
+    let resonanceOffset = 0;
+    let lastTime = performance.now();
+
+    function drawSystem() {
+      const now = performance.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+      const resonanceFrequency = 5; // Hz
+      const resonanceAmplitude = 5; // degrees
+      resonanceOffset = resonanceAmplitude * Math.sin(2 * Math.PI * resonanceFrequency * now / 1000);
+
+      const tiltX = parseFloat(tiltXInput.value) + (mode === 'aerospace' ? resonanceOffset : 0);
+      const tiltY = parseFloat(tiltYInput.value);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw incoming light
+      ctx.beginPath();
+      ctx.moveTo(100, 200);
+      ctx.lineTo(250, 200);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw micromirror
+      ctx.fillStyle = 'gray';
+      ctx.fillRect(245, 195, 10, 10);
+
+      // Calculate reflected beam direction
+      const beamLength = 200;
+      let angle = (tiltX * Math.PI) / 180;
+      let x2 = 250 + beamLength * Math.cos(angle);
+      let y2 = 200 - beamLength * Math.sin(angle);
+
+      if (mode === 'track') {
+        const dx = target.x - 250;
+        const dy = 200 - target.y;
+        angle = Math.atan2(dy, dx);
+        tiltXInput.value = ((angle * 180) / Math.PI).toFixed(2);
+        x2 = 250 + beamLength * Math.cos(angle);
+        y2 = 200 - beamLength * Math.sin(angle);
+      }
+
+      // Reflected beam
+      ctx.beginPath();
+      ctx.moveTo(250, 200);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = mode === 'aerospace' ? 'orange' : 'blue';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if (mode !== 'normal') {
+        ctx.beginPath();
+        ctx.arc(target.x, target.y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = 'green';
+        ctx.fill();
+      }
+
+      if (mode === 'aerospace') {
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'black';
+        ctx.fillText('Satellite Dish', 420, 140);
+        ctx.strokeRect(410, 130, 80, 40);
+      }
+
+      requestAnimationFrame(drawSystem);
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+    }
+
+    canvas.addEventListener('click', function (e) {
+      if (mode === 'track') {
+        const rect = canvas.getBoundingClientRect();
+        target.x = e.clientX - rect.left;
+        target.y = e.clientY - rect.top;
+      }
+    });
+
+    drawSystem();
+  </script>
+</body>
+</html>
